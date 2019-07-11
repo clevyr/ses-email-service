@@ -14,6 +14,7 @@ QUEUE_URL = os.getenv('AWS_SQS_URL', '')
 MAX_SQS_MESSAGES = SES_RATE_LIMIT if SES_RATE_LIMIT <= 10 else 10
 
 def main():
+    print('Listening for emails')
     while True:
         response = SQS.receive_message(
             QueueUrl=QUEUE_URL,
