@@ -25,12 +25,17 @@ def main():
         if response and 'Messages' in response and len(response['Messages']) > 0:
             for message in response['Messages']:
                 email = json.loads(message['Body'])
-                SES.send_email(**email)
-                SQS.delete_message(
-                    QueueUrl=QUEUE_URL,
-                    ReceiptHandle=message['ReceiptHandle']
-                )
-                print(f'Email sent to {email.Destination.ToAddresses}')
+                if email is not None:
+                    SES.send_email(**email)
+                    SQS.delete_message(
+                        QueueUrl=QUEUE_URL,
+                        ReceiptHandle=message['ReceiptHandle']
+                    )
+                    if 'Destination' not in email:
+                        print('Email doesn\'t have destination')
+                        print(email)
+                    else:
+                        print(f'Email sent to {email.Destination.ToAddresses}')
         time.sleep(2)
 
 if __name__ == "__main__":
