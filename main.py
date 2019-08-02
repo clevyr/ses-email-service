@@ -33,9 +33,9 @@ def main():
                     )
                     if 'Destination' not in email:
                         print('Email doesn\'t have destination')
-                        print(email)
                     else:
-                        print(f'Email sent to {email.Destination.ToAddresses}')
+                        dest = email['Destination']['ToAddresses']
+                        print(f'Email sent to {dest}')
         time.sleep(2)
 
 if __name__ == "__main__":
