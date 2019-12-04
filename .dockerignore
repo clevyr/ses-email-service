@@ -1,6 +1,10 @@
 .git/
+.circleci/
+.vscode/
+venv/
 .dockerignore
 .gitignore
 Dockerfile
-README.md
+email_blacklist.py
 LICENSE.md
+README.md
