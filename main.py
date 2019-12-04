@@ -4,6 +4,7 @@ import time
 
 import boto3
 
+QUEUE_URL = os.getenv('AWS_SQS_URL', '')
 USE_BLACKLIST = os.getenv('USE_BLACKLIST', 'false').lower() == True
 
 if USE_BLACKLIST:
@@ -13,11 +14,7 @@ if USE_BLACKLIST:
 
 SES = boto3.client('ses')
 SQS = boto3.client('sqs')
-dynamodb = boto3.client('dynamodb')
-
-SES_RATE_LIMIT = int(os.getenv('AWS_SES_RATE_LIMIT', '10'))
-QUEUE_URL = os.getenv('AWS_SQS_URL', '')
-USE_BLACKLIST = os.getenv('USE_BLACKLIST', 'false').lower() == True
+SES_RATE_LIMIT = int(SES.get_send_quota()['MaxSendRate'])
 
 # You can only pull 10 messages at a time max
 MAX_SQS_MESSAGES = SES_RATE_LIMIT if SES_RATE_LIMIT <= 10 else 10
