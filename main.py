@@ -31,21 +31,21 @@ if USE_BLACKLIST:
 
 def removeBlacklist(email_addresses):
     if USE_BLACKLIST:
-    new_addresses = []
-    for email in email_addresses:
-        item = dynamodb.get_item(
-            Key={
-                'email': {
-                    'S': email,
+        new_addresses = []
+        for email in email_addresses:
+            item = dynamodb.get_item(
+                Key={
+                    'email': {
+                        'S': email,
+                    },
                 },
-            },
-            TableName='ses_blacklist',
-        )
-        if 'Item' in item.keys():
-            print(f'Removing {email} from the sender list due to being blacklisted')
-        else:
-            new_addresses.append(email)
-    return new_addresses
+                TableName='ses_blacklist',
+            )
+            if 'Item' in item.keys():
+                print(f'Removing {email} from the sender list due to being blacklisted')
+            else:
+                new_addresses.append(email)
+        return new_addresses
     else:
         return email_addresses
 
