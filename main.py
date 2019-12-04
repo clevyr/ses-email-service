@@ -4,6 +4,13 @@ import time
 
 import boto3
 
+USE_BLACKLIST = os.getenv('USE_BLACKLIST', 'false').lower() == True
+
+if USE_BLACKLIST:
+    BLACKLIST_AWS_ACCESS_KEY_ID = os.getenv('BLACKLIST_AWS_ACCESS_KEY_ID', '')
+    BLACKLIST_AWS_SECRET_ACCESS_KEY = os.getenv('BLACKLIST_AWS_SECRET_ACCESS_KEY', '')
+    BLACKLIST_AWS_DEFAULT_REGION = os.getenv('BLACKLIST_AWS_DEFAULT_REGION', '')
+
 SES = boto3.client('ses')
 SQS = boto3.client('sqs')
 dynamodb = boto3.client('dynamodb')
@@ -16,7 +23,17 @@ USE_BLACKLIST = os.getenv('USE_BLACKLIST', 'false').lower() == True
 MAX_SQS_MESSAGES = SES_RATE_LIMIT if SES_RATE_LIMIT <= 10 else 10
 
 
+if USE_BLACKLIST:
+    dynamodb = boto3.client(
+        'dynamodb',
+        aws_access_key_id=BLACKLIST_AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=BLACKLIST_AWS_SECRET_ACCESS_KEY,
+        region_name=BLACKLIST_AWS_DEFAULT_REGION,
+    )
+
+
 def removeBlacklist(email_addresses):
+    if USE_BLACKLIST:
     new_addresses = []
     for email in email_addresses:
         item = dynamodb.get_item(
@@ -32,6 +49,8 @@ def removeBlacklist(email_addresses):
         else:
             new_addresses.append(email)
     return new_addresses
+    else:
+        return email_addresses
 
 
 def main():
