@@ -22,7 +22,7 @@ def email(error, from_address, addresses):
     try:
         ses = boto3.client('ses', region_name=SES_REGION)
         errString = ''.join(traceback.format_exception(etype=type(error), value=error, tb=error.__traceback__))
-        response = ses.send_email(
+        ses.send_email(
             Source=from_address,
             Destination={
                 'ToAddresses': addresses

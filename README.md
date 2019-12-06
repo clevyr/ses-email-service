@@ -6,16 +6,19 @@ There are two services within this repo, the SES Email Service to be run as a Do
 
 ## Service Environment Variables
 
-|       Environment Variable        |                                                                       Details                                                                       |                          Example                          |
-| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| `AWS_ACCESS_KEY_ID`               | Specifies an AWS access key associated with an IAM user or role.                                                                                    | `wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY`                |
-| `AWS_SECRET_ACCESS_KEY`           | Specifies the secret key associated with the access key. This is essentially the "password" for the access key.                                     | `AKIAIOSFODNN7EXAMPLE`                                    |
-| `AWS_DEFAULT_REGION`              | Specifies the AWS Region to send the request to.                                                                                                    | `us-east-1`                                               |
-| `AWS_SQS_URL`                     | Specifies the SQS queue where emails are sent                                                                                                       | `https://sqs.us-east-2.amazonaws.com/683774710813/emails` |
-| `USE_BLACKLIST`                   | Whether to use the Clevyr email recipient blacklist                                                                                                 | `true`                                                    |
-| `BLACKLIST_AWS_ACCESS_KEY_ID`     | Specifies an AWS access key associated with an IAM user or role, used to access the shared blacklist                                                | `true`                                                    |
-| `BLACKLIST_AWS_SECRET_ACCESS_KEY` | Specifies the secret key associated with the access key. This is essentially the "password" for the access key. Used to access the shared blacklist | `true`                                                    |
-| `BLACKLIST_AWS_DEFAULT_REGION`    | Specifies the AWS Region to send the request to. Used to access the shared blacklist                                                                | `true`                                                    |
+|  Environment Variable   |                                                                       Details                                                                       |                     Example                     |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `USE_BLACKLIST`         | Whether to use the Clevyr email recipient blacklist                                                                                                 | `true`                                          |
+| `AWS_ACCESS_KEY_ID`     | Specifies an AWS access key associated with an IAM user or role, used to access the shared blacklist                                                | `AKIA0000000000000000`                          |
+| `AWS_SECRET_ACCESS_KEY` | Specifies the secret key associated with the access key. This is essentially the "password" for the access key. Used to access the shared blacklist | `0000000000000000000000000000000000000`         |
+| `AWS_DEFAULT_REGION`    | Specifies the AWS Region to send the request to. Used to access the shared blacklist                                                                | `us-east-1`                                     |
+| `SES_RATE_LIMIT`        | Specifies the maximum emails per second you are allowed to send per second                                                                          | `10`                                            |
+| `SMTP_HOST`             | Specifies the host to listen on                                                                                                                     | `0.0.0.0`                                       |
+| `SMTP_PORT`             | Specifies the port to listen on                                                                                                                     | `1025`                                          |
+| `AWS_SMTP_HOST`         | Specifies the AWS SES SMTP host to talk to                                                                                                          | `email-smtp.us-east-1.amazonaws.com`            |
+| `AWS_SMTP_PORT`         | Specifies the AWS SES SMTP port to talk to                                                                                                          | `587`                                           |
+| `AWS_SMTP_USERNAME`     | Specifies the AWS SES SMTP username                                                                                                                 | `AKIA0000000000000000`                          |
+| `AWS_SMTP_PASSWORD`     | Specifies the AWS SES SMTP username                                                                                                                 | `ABCDEF/GHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQR` |
 
 ## Lambda Environment Variables
 

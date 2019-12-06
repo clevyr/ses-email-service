@@ -1,32 +1,108 @@
-import json
+import asyncore
+import concurrent.futures
 import os
-import time
+from smtpd import SMTPServer
+import smtplib
+from smtplib import SMTPResponseException
+import ssl
 
 import boto3
+from ratelimit import limits, sleep_and_retry
 
-QUEUE_URL = os.getenv('AWS_SQS_URL', '')
-USE_BLACKLIST = os.getenv('USE_BLACKLIST', 'false').lower() == True
+DEBUG = os.getenv('DEBUG', 'false').lower() == 'true'
+
+_DEFAULT_CIPHERS = (
+    'ECDH+AESGCM:DH+AESGCM:ECDH+AES256:DH+AES256:ECDH+AES128:DH+AES:ECDH+HIGH:'
+    'DH+HIGH:ECDH+3DES:DH+3DES:RSA+AESGCM:RSA+AES:RSA+HIGH:RSA+3DES:!aNULL:'
+    '!eNULL:!MD5'
+)
+
+SES_RATE_LIMIT = int(os.getenv('SES_RATE_LIMIT', '10'))
+
+SMTP_HOST = os.getenv('SMTP_HOST', '0.0.0.0')
+SMTP_PORT = int(os.getenv('SMTP_PORT', '1025'))
+
+AWS_SMTP_HOST = os.getenv('AWS_SMTP_HOST', '0.0.0.0')
+AWS_SMTP_PORT = int(os.getenv('AWS_SMTP_PORT', '1025'))
+AWS_SMTP_USERNAME = os.getenv('AWS_SMTP_USERNAME', '')
+AWS_SMTP_PASSWORD = os.getenv('AWS_SMTP_PASSWORD', '')
+
+USE_BLACKLIST = os.getenv('USE_BLACKLIST', 'false').lower() == 'true'
 
 if USE_BLACKLIST:
-    BLACKLIST_AWS_ACCESS_KEY_ID = os.getenv('BLACKLIST_AWS_ACCESS_KEY_ID', '')
-    BLACKLIST_AWS_SECRET_ACCESS_KEY = os.getenv('BLACKLIST_AWS_SECRET_ACCESS_KEY', '')
-    BLACKLIST_AWS_DEFAULT_REGION = os.getenv('BLACKLIST_AWS_DEFAULT_REGION', '')
-
-SES = boto3.client('ses')
-SQS = boto3.client('sqs')
-SES_RATE_LIMIT = int(SES.get_send_quota()['MaxSendRate'])
-
-# You can only pull 10 messages at a time max
-MAX_SQS_MESSAGES = SES_RATE_LIMIT if SES_RATE_LIMIT <= 10 else 10
+    dynamodb = boto3.client('dynamodb')
 
 
-if USE_BLACKLIST:
-    dynamodb = boto3.client(
-        'dynamodb',
-        aws_access_key_id=BLACKLIST_AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=BLACKLIST_AWS_SECRET_ACCESS_KEY,
-        region_name=BLACKLIST_AWS_DEFAULT_REGION,
-    )
+class EmailRelayServer(SMTPServer):
+    def process_message(self, peer, mailfrom, rcpttos, data, **kwargs):
+        if DEBUG:
+            print('#'*80)
+            print(f'Receiving message from: {peer}')
+            print(f'Message addressed from: {mailfrom}')
+            print(f'Message addressed to  : {rcpttos}')
+            print(f'Message length        : {len(data)}')
+            print('#'*80)
+        return self.send_email(
+            mailfrom,
+            rcpttos,
+            data,
+            kwargs['mail_options'],
+            kwargs['rcpt_options'],
+        )
+
+    def send_email(self, mailfrom, rcpttos, data, mail_options, rcpt_options):
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            return executor.submit(
+                self._send_email,
+                mailfrom,
+                rcpttos,
+                data,
+                mail_options,
+                rcpt_options,
+            ).result()
+
+    @sleep_and_retry
+    @limits(calls=SES_RATE_LIMIT, period=1)
+    def _send_email(self, mailfrom, rcpttos, data, mail_options, rcpt_options):
+        with smtplib.SMTP(AWS_SMTP_HOST, AWS_SMTP_PORT) as server:
+            # only TLSv1 or higher
+            context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+            context.options |= ssl.OP_NO_SSLv2
+            context.options |= ssl.OP_NO_SSLv3
+
+            context.set_ciphers(_DEFAULT_CIPHERS)
+            context.set_default_verify_paths()
+            context.verify_mode = ssl.CERT_REQUIRED
+
+            if server.starttls(context=context)[0] != 220:
+                if DEBUG:
+                    print('Not sending because STARTTLS is not enabled')
+                # cancel if connection is not encrypted
+                return '554 Transaction failed: STARTTLS is required'
+
+            server.login(AWS_SMTP_USERNAME, AWS_SMTP_PASSWORD)
+
+            try:
+                if USE_BLACKLIST:
+                    # Filter out blacklisted email addresses
+                    rcpttos = removeBlacklist(rcpttos)
+
+                server.sendmail(
+                    mailfrom,
+                    rcpttos,
+                    data,
+                    mail_options=mail_options,
+                    rcpt_options=rcpt_options,
+                )
+            except SMTPResponseException as e:
+                if DEBUG:
+                    print(f'SMTP Error while relaying email to SES: {str(e)}')
+                server.quit()
+                return f'{e.smtp_code} {e.smtp_error.decode()}'
+            except Exception as e:
+                print(f'Error relaying email to SES: {str(e)}')
+                server.quit()
+                return f'554 Transaction failed: {str(e)}'
 
 
 def removeBlacklist(email_addresses):
@@ -42,7 +118,9 @@ def removeBlacklist(email_addresses):
                 TableName='ses_blacklist',
             )
             if 'Item' in item.keys():
-                print(f'Removing {email} from the sender list due to being blacklisted')
+                print(
+                    f'Removing {email} from recipients due to being blacklistd'
+                )
             else:
                 new_addresses.append(email)
         return new_addresses
@@ -51,33 +129,12 @@ def removeBlacklist(email_addresses):
 
 
 def main():
-    print('Listening for emails')
-    while True:
-        response = SQS.receive_message(
-            QueueUrl=QUEUE_URL,
-            MaxNumberOfMessages=MAX_SQS_MESSAGES,
-            WaitTimeSeconds=0
-        )
-
-        if response and 'Messages' in response and len(response['Messages']) > 0:
-            for message in response['Messages']:
-                email = json.loads(message['Body'])
-                if email is not None:
-                    if USE_BLACKLIST:
-                        # Filter out blacklisted email addresses
-                        email['Destination']['ToAddresses'] = removeBlacklist(email['Destination']['ToAddresses'])
-
-                    SES.send_email(**email)
-                    SQS.delete_message(
-                        QueueUrl=QUEUE_URL,
-                        ReceiptHandle=message['ReceiptHandle']
-                    )
-                    if 'Destination' not in email:
-                        print('Email doesn\'t have destination')
-                    else:
-                        dest = email['Destination']['ToAddresses']
-                        print(f'Email sent to {dest}')
-        time.sleep(2)
+    print(f'Email server listing on {SMTP_HOST}:{SMTP_PORT}')
+    EmailRelayServer((SMTP_HOST, SMTP_PORT), None)
+    try:
+        asyncore.loop()
+    except KeyboardInterrupt:
+        pass
 
 
 if __name__ == "__main__":
