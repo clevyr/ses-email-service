@@ -47,7 +47,7 @@ def lambda_handler(event, context):
     try:
         for record in event['Records']:
             sns_message = json.loads(record['Sns']['Message'])
-            if sns_message['notificationType'] == 'Bounce' and sns_message['bounce']['bounceType'] == 'Permanant':
+            if sns_message['notificationType'] == 'Bounce' and sns_message['bounce']['bounceType'] == 'Permanent':
                 for bounced_recipient in sns_message['bounce']['bouncedRecipients']:
                     email = bounced_recipient['emailAddress']
                     dynamodb.put_item(
