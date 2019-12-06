@@ -14,6 +14,9 @@ jobs:
       - run:
           name: Update Lambda Code
           command: aws lambda update-function-code --function-name email-blacklist --zip-file fileb://./email-blacklist.zip
+      - run:
+          name: Publish new version
+          command: echo "Publishing Lambda version $(aws lambda publish-version --function-name email-blacklist | jq -r .Version)"
 
 workflows:
   version: 2
