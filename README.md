@@ -4,6 +4,10 @@ This service is used to help with clients who need a large amount of emails sent
 
 There are two services within this repo, the SES Email Service to be run as a Docker container, and the Email Blacklist service that runs in Lambda and listens to SNS for email bounce or complaint notifications, and adds them to a global blacklist.
 
+The blacklist lambda will update automatically with a push to the master branch.
+
+The email service docker will update `:latest` on a push to the master branch, and will update version `:x.x.x` if you tag a commit with a semver version tag, for example, Docker tag `:1.0.0` points to Git tag `1.0.0`.
+
 ## Service Environment Variables
 
 |  Environment Variable   |                                                                       Details                                                                       |                     Example                     |
